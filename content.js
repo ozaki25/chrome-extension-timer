@@ -268,31 +268,45 @@
     try {
       beepCtx = new (window.AudioContext || window.webkitAudioContext)();
       const ctx = beepCtx;
-      const playBeepOnce = (when, duration) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = 1000;
+
+      // ベル / チャイム風の音色 (倍音を重ねて減衰させる)
+      const playChime = (when, freq, duration) => {
         const start = ctx.currentTime + when;
-        gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.linearRampToValueAtTime(0.3, start + 0.01);
-        gain.gain.setValueAtTime(0.3, start + duration - 0.01);
-        gain.gain.linearRampToValueAtTime(0.0001, start + duration);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(start);
-        osc.stop(start + duration + 0.02);
+        // 鐘の倍音構成 (基音 + 整数倍音 + わずかに非整数の倍音)
+        const partials = [
+          { mult: 1.0, gain: 0.35, decay: 1.0 },
+          { mult: 2.0, gain: 0.18, decay: 0.7 },
+          { mult: 3.0, gain: 0.10, decay: 0.5 },
+          { mult: 4.2, gain: 0.06, decay: 0.35 }
+        ];
+        partials.forEach(({ mult, gain, decay }) => {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = freq * mult;
+          const tail = duration * decay;
+          g.gain.setValueAtTime(0.0001, start);
+          g.gain.exponentialRampToValueAtTime(gain, start + 0.008);
+          g.gain.exponentialRampToValueAtTime(0.0001, start + tail);
+          osc.connect(g).connect(ctx.destination);
+          osc.start(start);
+          osc.stop(start + tail + 0.1);
+        });
       };
 
-      // 一般的なキッチンタイマー風: 1kHz 短音 を 0.5 秒間隔で繰り返す
-      const beepDuration = 0.2;
-      const interval = 0.5;
-      const totalDuration = 8;
-      const count = Math.floor(totalDuration / interval);
-      for (let i = 0; i < count; i++) {
-        playBeepOnce(i * interval, beepDuration);
+      // ding-dong (C6 → G5) を 3 回繰り返す
+      const C6 = 1046.5;
+      const G5 = 783.99;
+      const tone = 1.6;
+      const cycle = 2.0;
+      const cycles = 3;
+      for (let i = 0; i < cycles; i++) {
+        playChime(i * cycle + 0.0, C6, tone);
+        playChime(i * cycle + 0.45, G5, tone);
       }
 
-      const id = setTimeout(stopBeep, totalDuration * 1000);
+      const total = cycles * cycle + tone;
+      const id = setTimeout(stopBeep, total * 1000);
       beepTimers.push(id);
     } catch (e) {}
   }
