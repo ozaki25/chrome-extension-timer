@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Overlay Timer",
+  "version": "1.0.0",
+  "description": "画面に重ねて表示できるカウントダウンタイマー。タブを切り替えても時間は継続します。",
+  "permissions": ["activeTab", "scripting", "storage", "alarms"],
+  "action": {
+    "default_title": "Overlay Timer を表示/非表示"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["overlay.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
