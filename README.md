@@ -95,11 +95,26 @@
 
 ```
 chrome-extension-timer/
-├── manifest.json   # 拡張機能のメタデータ
-├── background.js   # アラーム管理・アイコンクリック処理
-├── content.js     # オーバーレイUIとタイマーロジック
-├── overlay.css    # オーバーレイのスタイル
+├── manifest.json         # 拡張機能のメタデータ
+├── background.js         # アラーム管理・アイコンクリック処理
+├── content.js           # オーバーレイUIとタイマーロジック
+├── overlay.css          # オーバーレイのスタイル
+├── icons/
+│   ├── icon16.png       # ツールバー用 (16x16)
+│   ├── icon48.png       # 拡張機能一覧用 (48x48)
+│   └── icon128.png      # Chrome ウェブストア用 (128x128)
+├── scripts/
+│   └── make_icons.py    # アイコン再生成スクリプト (Pillow が必要)
 └── README.md
+```
+
+### アイコンの再生成
+
+アイコンを変更したい場合は、`scripts/make_icons.py` を編集して以下を実行してください。
+
+```bash
+pip install Pillow
+python3 scripts/make_icons.py
 ```
 
 ## ライセンス

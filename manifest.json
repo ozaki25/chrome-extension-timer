@@ -5,7 +5,17 @@
   "description": "画面に重ねて表示できるカウントダウンタイマー。タブを切り替えても時間は継続します。",
   "permissions": ["activeTab", "scripting", "storage", "alarms"],
   "action": {
-    "default_title": "Overlay Timer を表示/非表示"
+    "default_title": "Overlay Timer を表示/非表示",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
   "background": {
     "service_worker": "background.js"
