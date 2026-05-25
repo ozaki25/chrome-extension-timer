@@ -22,7 +22,7 @@
   let ui = {
     position: { x: 24, y: 24 },
     width: 240,
-    height: 320,
+    height: 280,
     opacity: 0.95,
     minimized: false
   };
@@ -39,7 +39,7 @@
   let rafId = null;
   const MIN_WIDTH = 180;
   const MAX_WIDTH = 640;
-  const MIN_HEIGHT = 280;
+  const MIN_HEIGHT = 240;
   const MAX_HEIGHT = 640;
 
   const pad = (n) => String(n).padStart(2, '0');
@@ -193,11 +193,22 @@
       shared.endTimestamp = newEnd;
       shared.pausedRemaining = remaining;
       chrome.runtime.sendMessage({ type: 'SCHEDULE_FINISH', when: shared.endTimestamp });
-    } else {
-      const newInitial = Math.max(0, shared.initialSeconds + deltaSeconds);
-      shared.initialSeconds = newInitial;
-      shared.pausedRemaining = newInitial;
+      saveShared();
+      render();
+      return;
     }
+
+    // 終了状態 (0 で停止中) のときは「延長して即再開」
+    const isFinished = root?.classList.contains('ot-finished-state');
+    if (isFinished && deltaSeconds > 0) {
+      restartWith(deltaSeconds);
+      return;
+    }
+
+    // それ以外 (一時停止中など) は通常の増減
+    const newInitial = Math.max(0, shared.initialSeconds + deltaSeconds);
+    shared.initialSeconds = newInitial;
+    shared.pausedRemaining = newInitial;
     saveShared();
     render();
   }
@@ -250,8 +261,6 @@
 
   let statusEl = null;
 
-  let extendPanel = null;
-
   function restartWith(seconds) {
     if (seconds <= 0) return;
     stopBeep();
@@ -264,13 +273,6 @@
     chrome.runtime.sendMessage({ type: 'SCHEDULE_FINISH', when: shared.endTimestamp });
     startTicking();
     render();
-  }
-
-  function extendByDirectInput() {
-    const m = Math.max(0, Math.min(999, parseInt(minutesInput.value, 10) || 0));
-    const s = Math.max(0, Math.min(59, parseInt(secondsInput.value, 10) || 0));
-    const total = m * 60 + s;
-    if (total > 0) restartWith(total);
   }
 
   function setStatus(text) {
@@ -341,8 +343,7 @@
     const text = display.textContent || '00:00';
     const charCount = text.length;
     // 固定高さの要素 (ヘッダー・ステータス・入力欄・ボタン・スライダー・余白) を控除
-    const isFinished = root?.classList.contains('ot-finished-state');
-    const reservedHeight = isFinished ? 320 : 240;
+    const reservedHeight = 240;
     const availableWidth = Math.max(40, ui.width - 24);
     const availableHeight = Math.max(28, ui.height - reservedHeight);
     // tabular-nums の数字は font-size の約 0.6 倍幅
@@ -392,7 +393,7 @@
         case 'ArrowLeft': w -= step; break;
         case 'ArrowDown': h += step; break;
         case 'ArrowUp': h -= step; break;
-        case 'Home': w = 240; h = 320; break;
+        case 'Home': w = 240; h = 280; break;
         default: changed = false;
       }
       if (changed) {
@@ -517,28 +518,6 @@
     directWrap.appendChild(secondsInput);
     directWrap.appendChild(sLabel);
 
-    extendPanel = document.createElement('div');
-    extendPanel.className = 'ot-extend';
-    extendPanel.setAttribute('role', 'group');
-    extendPanel.setAttribute('aria-label', '延長して再スタート');
-    const extendLabel = document.createElement('span');
-    extendLabel.className = 'ot-extend-label';
-    extendLabel.textContent = '延長:';
-    extendPanel.appendChild(extendLabel);
-    [60, 180, 300, 600].forEach((secs) => {
-      const min = secs / 60;
-      extendPanel.appendChild(
-        makeBtn(`+${min}分`, 'ot-extend-preset', () => restartWith(secs), `${min}分で再スタート`)
-      );
-    });
-    const extendCustomBtn = makeBtn(
-      '入力した時間で再開',
-      'ot-extend-custom',
-      extendByDirectInput,
-      '上の入力欄に指定した時間でタイマーを再スタート'
-    );
-    extendPanel.appendChild(extendCustomBtn);
-
     const adjusters = document.createElement('div');
     adjusters.className = 'ot-adjusters';
     adjusters.setAttribute('role', 'group');
@@ -587,7 +566,6 @@
     root.appendChild(header);
     root.appendChild(display);
     root.appendChild(statusEl);
-    root.appendChild(extendPanel);
     root.appendChild(directWrap);
     root.appendChild(adjusters);
     root.appendChild(controls);

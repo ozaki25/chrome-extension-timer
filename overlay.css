@@ -8,9 +8,9 @@
   gap: 8px;
   padding: 10px 12px;
   width: 240px;
-  height: 320px;
+  height: 280px;
   min-width: 180px;
-  min-height: 280px;
+  min-height: 240px;
   background: #11141c;
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -270,39 +270,6 @@
   color: #fff5b0;
 }
 
-#overlay-timer-root .ot-extend {
-  display: none;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 213, 74, 0.5);
-  border-radius: 8px;
-}
-
-#overlay-timer-root.ot-finished-state .ot-extend {
-  display: flex;
-}
-
-#overlay-timer-root .ot-extend-custom {
-  flex-basis: 100%;
-  margin-top: 2px;
-}
-
-#overlay-timer-root .ot-extend-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #ffd54a;
-  letter-spacing: 0.05em;
-}
-
-#overlay-timer-root .ot-extend .ot-extend-preset {
-  flex: 1 1 auto;
-  min-width: 52px;
-  padding: 6px 8px;
-  font-weight: 600;
-}
 
 .ot-sr-only {
   position: absolute !important;
