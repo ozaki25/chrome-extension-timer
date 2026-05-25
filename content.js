@@ -31,9 +31,12 @@
   let display = null;
   let startBtn = null;
   let minBtn = null;
-  let scaleInput = null;
   let opacityInput = null;
+  let resizeHandle = null;
+  let minutesInput = null;
+  let secondsInput = null;
   let rafId = null;
+  const BASE_WIDTH = 240;
 
   const pad = (n) => String(n).padStart(2, '0');
 
@@ -80,16 +83,42 @@
   function render() {
     if (!root) return;
     const remaining = getRemaining();
-    display.textContent = formatTime(remaining);
-    display.classList.toggle('ot-finished', remaining <= 0 && !isRunning() && shared.endTimestamp == null && shared.pausedRemaining === 0);
+    const formatted = formatTime(remaining);
+    display.textContent = formatted;
+    display.setAttribute('aria-label', `残り ${formatted}`);
     startBtn.textContent = isRunning() ? '一時停止' : '開始';
+    startBtn.setAttribute('aria-pressed', isRunning() ? 'true' : 'false');
     root.classList.toggle('ot-minimized', ui.minimized);
     minBtn.textContent = ui.minimized ? '▢' : '_';
-    minBtn.title = ui.minimized ? '展開' : '最小化';
+    minBtn.setAttribute('aria-label', ui.minimized ? '展開' : '最小化');
+    minBtn.setAttribute('aria-expanded', ui.minimized ? 'false' : 'true');
     root.style.transform = `scale(${ui.scale})`;
     root.style.opacity = String(ui.opacity);
-    if (scaleInput && document.activeElement !== scaleInput) scaleInput.value = String(ui.scale);
     if (opacityInput && document.activeElement !== opacityInput) opacityInput.value = String(ui.opacity);
+
+    const baseSeconds = isRunning() ? Math.ceil((shared.endTimestamp - Date.now()) / 1000) : shared.pausedRemaining;
+    const totalSec = Math.max(0, baseSeconds);
+    if (minutesInput && document.activeElement !== minutesInput) {
+      minutesInput.value = String(Math.floor(totalSec / 60));
+    }
+    if (secondsInput && document.activeElement !== secondsInput) {
+      secondsInput.value = String(totalSec % 60);
+    }
+  }
+
+  function applyDirectInput() {
+    const m = Math.max(0, Math.min(999, parseInt(minutesInput.value, 10) || 0));
+    const s = Math.max(0, Math.min(59, parseInt(secondsInput.value, 10) || 0));
+    const total = m * 60 + s;
+    stopBeep();
+    if (root) root.classList.remove('ot-finished-state');
+    setStatus('');
+    shared.initialSeconds = total;
+    shared.pausedRemaining = total;
+    shared.endTimestamp = null;
+    saveShared();
+    chrome.runtime.sendMessage({ type: 'CANCEL_FINISH' });
+    render();
   }
 
   function startTicking() {
@@ -122,6 +151,7 @@
     if (secs <= 0) return;
     stopBeep();
     if (root) root.classList.remove('ot-finished-state');
+    setStatus('');
     shared.endTimestamp = Date.now() + secs * 1000;
     shared.pausedRemaining = secs;
     saveShared();
@@ -141,6 +171,7 @@
   function reset() {
     stopBeep();
     if (root) root.classList.remove('ot-finished-state');
+    setStatus('');
     shared.endTimestamp = null;
     shared.pausedRemaining = shared.initialSeconds;
     saveShared();
@@ -182,51 +213,45 @@
     try {
       beepCtx = new (window.AudioContext || window.webkitAudioContext)();
       const ctx = beepCtx;
-      const playChirp = (when, freq, duration) => {
+      const playBeepOnce = (when, duration) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = 'square';
-        osc.frequency.value = freq;
+        osc.type = 'sine';
+        osc.frequency.value = 1000;
         const start = ctx.currentTime + when;
         gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(0.4, start + 0.03);
-        gain.gain.setValueAtTime(0.4, start + duration - 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        gain.gain.linearRampToValueAtTime(0.3, start + 0.01);
+        gain.gain.setValueAtTime(0.3, start + duration - 0.01);
+        gain.gain.linearRampToValueAtTime(0.0001, start + duration);
         osc.connect(gain).connect(ctx.destination);
         osc.start(start);
-        osc.stop(start + duration + 0.05);
+        osc.stop(start + duration + 0.02);
       };
 
-      // 8秒間、はっきりとしたパターンで鳴らす
-      const pattern = [
-        [0.0, 880, 0.25],
-        [0.35, 1175, 0.25],
-        [0.7, 880, 0.25],
-        [1.05, 1175, 0.6],
-        [1.9, 880, 0.25],
-        [2.25, 1175, 0.25],
-        [2.6, 880, 0.25],
-        [2.95, 1175, 0.6],
-        [3.8, 880, 0.25],
-        [4.15, 1175, 0.25],
-        [4.5, 880, 0.25],
-        [4.85, 1175, 0.6],
-        [5.7, 880, 0.25],
-        [6.05, 1175, 0.25],
-        [6.4, 880, 0.25],
-        [6.75, 1175, 0.6]
-      ];
-      pattern.forEach(([when, freq, dur]) => playChirp(when, freq, dur));
+      // 一般的なキッチンタイマー風: 1kHz 短音 を 0.5 秒間隔で繰り返す
+      const beepDuration = 0.2;
+      const interval = 0.5;
+      const totalDuration = 8;
+      const count = Math.floor(totalDuration / interval);
+      for (let i = 0; i < count; i++) {
+        playBeepOnce(i * interval, beepDuration);
+      }
 
-      // 8秒経過後に自動停止
-      const id = setTimeout(stopBeep, 8000);
+      const id = setTimeout(stopBeep, totalDuration * 1000);
       beepTimers.push(id);
     } catch (e) {}
+  }
+
+  let statusEl = null;
+
+  function setStatus(text) {
+    if (statusEl) statusEl.textContent = text;
   }
 
   function onFinish() {
     if (root) {
       root.classList.add('ot-finished-state');
+      setStatus('終了');
     }
     playBeep();
   }
@@ -272,11 +297,75 @@
     window.addEventListener('touchend', onUp);
   }
 
-  function makeBtn(label, cls, onClick, title) {
+  function setScale(newScale) {
+    ui.scale = Math.max(0.5, Math.min(2.5, newScale));
+    if (root) root.style.transform = `scale(${ui.scale})`;
+  }
+
+  function makeResizable(handle) {
+    let startX = 0, startY = 0, startScale = 1, resizing = false;
+    const onDown = (e) => {
+      resizing = true;
+      const point = e.touches ? e.touches[0] : e;
+      startX = point.clientX;
+      startY = point.clientY;
+      startScale = ui.scale;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const onMove = (e) => {
+      if (!resizing) return;
+      const point = e.touches ? e.touches[0] : e;
+      const dx = point.clientX - startX;
+      const dy = point.clientY - startY;
+      const delta = (dx + dy) / 2;
+      setScale(startScale + delta / BASE_WIDTH);
+    };
+    const onUp = () => {
+      if (resizing) {
+        resizing = false;
+        saveUi();
+      }
+    };
+    handle.addEventListener('mousedown', onDown);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    handle.addEventListener('touchstart', onDown, { passive: false });
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+    handle.addEventListener('keydown', (e) => {
+      const step = e.shiftKey ? 0.2 : 0.05;
+      let changed = true;
+      switch (e.key) {
+        case 'ArrowRight':
+        case 'ArrowDown':
+        case '+':
+          setScale(ui.scale + step);
+          break;
+        case 'ArrowLeft':
+        case 'ArrowUp':
+        case '-':
+          setScale(ui.scale - step);
+          break;
+        case 'Home':
+          setScale(1);
+          break;
+        default:
+          changed = false;
+      }
+      if (changed) {
+        e.preventDefault();
+        saveUi();
+      }
+    });
+  }
+
+  function makeBtn(label, cls, onClick, ariaLabel) {
     const b = document.createElement('button');
+    b.type = 'button';
     b.className = 'ot-btn ' + (cls || '');
     b.textContent = label;
-    if (title) b.title = title;
+    if (ariaLabel) b.setAttribute('aria-label', ariaLabel);
     b.addEventListener('click', onClick);
     return b;
   }
@@ -284,6 +373,8 @@
   function build() {
     root = document.createElement('div');
     root.id = 'overlay-timer-root';
+    root.setAttribute('role', 'region');
+    root.setAttribute('aria-label', 'オーバーレイタイマー');
     root.style.left = ui.position.x + 'px';
     root.style.top = ui.position.y + 'px';
     root.style.transformOrigin = 'top left';
@@ -297,17 +388,20 @@
     const headerBtns = document.createElement('div');
     headerBtns.className = 'ot-header-btns';
     minBtn = document.createElement('button');
+    minBtn.type = 'button';
     minBtn.className = 'ot-icon-btn';
     minBtn.textContent = '_';
+    minBtn.setAttribute('aria-label', '最小化');
     minBtn.addEventListener('click', () => {
       ui.minimized = !ui.minimized;
       saveUi();
       render();
     });
     const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
     closeBtn.className = 'ot-icon-btn';
     closeBtn.textContent = '×';
-    closeBtn.title = '閉じる';
+    closeBtn.setAttribute('aria-label', '閉じる');
     closeBtn.addEventListener('click', () => hide());
     headerBtns.appendChild(minBtn);
     headerBtns.appendChild(closeBtn);
@@ -317,6 +411,8 @@
 
     display = document.createElement('div');
     display.className = 'ot-display';
+    display.setAttribute('role', 'timer');
+    display.setAttribute('aria-live', 'off');
     display.addEventListener('click', () => {
       if (ui.minimized) {
         ui.minimized = false;
@@ -325,12 +421,66 @@
       }
     });
 
+    statusEl = document.createElement('div');
+    statusEl.className = 'ot-status';
+    statusEl.setAttribute('role', 'status');
+    statusEl.setAttribute('aria-live', 'polite');
+
+    const directWrap = document.createElement('div');
+    directWrap.className = 'ot-direct';
+    directWrap.setAttribute('role', 'group');
+    directWrap.setAttribute('aria-label', '時間を直接入力');
+
+    minutesInput = document.createElement('input');
+    minutesInput.type = 'number';
+    minutesInput.min = '0';
+    minutesInput.max = '999';
+    minutesInput.inputMode = 'numeric';
+    minutesInput.className = 'ot-num';
+    minutesInput.setAttribute('aria-label', '分');
+    minutesInput.addEventListener('change', applyDirectInput);
+    minutesInput.addEventListener('blur', applyDirectInput);
+
+    secondsInput = document.createElement('input');
+    secondsInput.type = 'number';
+    secondsInput.min = '0';
+    secondsInput.max = '59';
+    secondsInput.inputMode = 'numeric';
+    secondsInput.className = 'ot-num';
+    secondsInput.setAttribute('aria-label', '秒');
+    secondsInput.addEventListener('change', applyDirectInput);
+    secondsInput.addEventListener('blur', applyDirectInput);
+
+    [minutesInput, secondsInput].forEach((inp) => {
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          applyDirectInput();
+          inp.blur();
+        }
+      });
+    });
+
+    const mLabel = document.createElement('span');
+    mLabel.className = 'ot-unit';
+    mLabel.textContent = '分';
+    const sLabel = document.createElement('span');
+    sLabel.className = 'ot-unit';
+    sLabel.textContent = '秒';
+
+    directWrap.appendChild(minutesInput);
+    directWrap.appendChild(mLabel);
+    directWrap.appendChild(secondsInput);
+    directWrap.appendChild(sLabel);
+
     const adjusters = document.createElement('div');
     adjusters.className = 'ot-adjusters';
-    adjusters.appendChild(makeBtn('-1分', 'ot-adj', () => adjust(-60)));
-    adjusters.appendChild(makeBtn('-10秒', 'ot-adj', () => adjust(-10)));
-    adjusters.appendChild(makeBtn('+10秒', 'ot-adj', () => adjust(10)));
-    adjusters.appendChild(makeBtn('+1分', 'ot-adj', () => adjust(60)));
+    adjusters.setAttribute('role', 'group');
+    adjusters.setAttribute('aria-label', '時間を増減');
+    adjusters.appendChild(makeBtn('-1分', 'ot-adj', () => adjust(-60), '1分減らす'));
+    adjusters.appendChild(makeBtn('-10秒', 'ot-adj', () => adjust(-10), '10秒減らす'));
+    adjusters.appendChild(makeBtn('+10秒', 'ot-adj', () => adjust(10), '10秒増やす'));
+    adjusters.appendChild(makeBtn('+1分', 'ot-adj', () => adjust(60), '1分増やす'));
 
     const controls = document.createElement('div');
     controls.className = 'ot-controls';
@@ -340,50 +490,47 @@
 
     const sliders = document.createElement('div');
     sliders.className = 'ot-sliders';
-    const scaleWrap = document.createElement('label');
-    scaleWrap.className = 'ot-slider';
-    scaleWrap.innerHTML = '<span>サイズ</span>';
-    scaleInput = document.createElement('input');
-    scaleInput.type = 'range';
-    scaleInput.min = '0.5';
-    scaleInput.max = '2';
-    scaleInput.step = '0.1';
-    scaleInput.value = String(ui.scale);
-    scaleInput.addEventListener('input', () => {
-      ui.scale = parseFloat(scaleInput.value);
-      saveUi();
-      render();
-    });
-    scaleWrap.appendChild(scaleInput);
-
     const opWrap = document.createElement('label');
     opWrap.className = 'ot-slider';
-    opWrap.innerHTML = '<span>透明度</span>';
+    const opLabel = document.createElement('span');
+    opLabel.textContent = '透明度';
     opacityInput = document.createElement('input');
     opacityInput.type = 'range';
-    opacityInput.min = '0.2';
+    opacityInput.min = '0.5';
     opacityInput.max = '1';
     opacityInput.step = '0.05';
     opacityInput.value = String(ui.opacity);
+    opacityInput.setAttribute('aria-label', '透明度');
     opacityInput.addEventListener('input', () => {
       ui.opacity = parseFloat(opacityInput.value);
       saveUi();
       render();
     });
+    opWrap.appendChild(opLabel);
     opWrap.appendChild(opacityInput);
-
-    sliders.appendChild(scaleWrap);
     sliders.appendChild(opWrap);
+
+    resizeHandle = document.createElement('div');
+    resizeHandle.className = 'ot-resize';
+    resizeHandle.setAttribute('role', 'separator');
+    resizeHandle.setAttribute('aria-label', 'サイズを変更');
+    resizeHandle.setAttribute('aria-orientation', 'horizontal');
+    resizeHandle.setAttribute('tabindex', '0');
+    resizeHandle.title = 'ドラッグでサイズ変更';
 
     root.appendChild(header);
     root.appendChild(display);
+    root.appendChild(statusEl);
+    root.appendChild(directWrap);
     root.appendChild(adjusters);
     root.appendChild(controls);
     root.appendChild(sliders);
+    root.appendChild(resizeHandle);
     document.documentElement.appendChild(root);
 
     makeDraggable(header);
     makeDraggable(display);
+    makeResizable(resizeHandle);
   }
 
   function show() {
