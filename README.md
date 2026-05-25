@@ -105,15 +105,29 @@ chrome-extension-timer/
 ├── manifest.json         # 拡張機能のメタデータ
 ├── background.js         # アラーム管理・アイコンクリック処理
 ├── content.js           # オーバーレイUIとタイマーロジック
+├── lib.js               # 純粋関数 (テスト対象。content.js から使用)
 ├── overlay.css          # オーバーレイのスタイル
 ├── icons/
 │   ├── icon16.png       # ツールバー用 (16x16)
 │   ├── icon48.png       # 拡張機能一覧用 (48x48)
 │   └── icon128.png      # Chrome ウェブストア用 (128x128)
+├── tests/
+│   └── lib.test.js      # 単体テスト (node:test)
 ├── scripts/
 │   └── make_icons.py    # アイコン再生成スクリプト (Pillow が必要)
+├── package.json
 └── README.md
 ```
+
+## テスト
+
+Node 標準の `node:test` で純粋関数（時刻フォーマット / 状態遷移 / レイアウト計算）を単体テストしています。依存パッケージは無し。
+
+```bash
+npm test
+```
+
+CI は GitHub Actions (`.github/workflows/test.yml`) で push / PR 時に自動実行されます。E2E は含めず、ブラウザ無しで完結します。
 
 ### アイコンの再生成
 

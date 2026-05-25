@@ -6,6 +6,8 @@
   }
   window.__overlayTimerInjected__ = true;
 
+  const Lib = (typeof globalThis !== 'undefined' && globalThis.OverlayTimerLib) || window.OverlayTimerLib;
+
   // ============================================================
   // 定数
   // ============================================================
@@ -70,35 +72,12 @@
   let beepTimers = [];
 
   // ============================================================
-  // 共通ユーティリティ
+  // 共通ユーティリティ (lib.js の純粋関数を shared/now でバインド)
   // ============================================================
-  const pad = (n) => String(n).padStart(2, '0');
-
-  function formatTime(totalSeconds) {
-    const s = Math.max(0, Math.ceil(totalSeconds));
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = s % 60;
-    if (h > 0) return `${pad(h)}:${pad(m)}:${pad(sec)}`;
-    return `${pad(m)}:${pad(sec)}`;
-  }
-
-  function getRemaining() {
-    if (shared.endTimestamp) {
-      return Math.max(0, (shared.endTimestamp - Date.now()) / 1000);
-    }
-    return shared.pausedRemaining;
-  }
-
-  function isRunning() {
-    return shared.endTimestamp != null && shared.endTimestamp > Date.now();
-  }
-
-  // 「終了状態」= 実行中ではなく、残り時間が 0 になっている
-  // タブを閉じている間にタイマーが切れたケースもカバーするため getRemaining を見る
-  function isFinished() {
-    return !isRunning() && getRemaining() <= 0 && shared.initialSeconds > 0;
-  }
+  const formatTime = (s) => Lib.formatTime(s);
+  const getRemaining = () => Lib.getRemaining(shared, Date.now());
+  const isRunning = () => Lib.isRunning(shared, Date.now());
+  const isFinished = () => Lib.isFinished(shared, Date.now());
 
   // ============================================================
   // ストレージ
@@ -153,88 +132,72 @@
   }
 
   // ============================================================
-  // タイマー操作 (state を更新する側)
+  // タイマー操作 (lib の transition* で state を更新し、副作用は content.js 側)
   // ============================================================
-  function startCountdown(seconds) {
-    if (seconds <= 0) return;
+  function commitToRunning(next) {
     stopBeep();
-    shared.endTimestamp = Date.now() + seconds * 1000;
-    shared.pausedRemaining = seconds;
+    shared = next;
     saveShared();
     chrome.runtime.sendMessage({ type: 'SCHEDULE_FINISH', when: shared.endTimestamp });
     startTicking();
     render();
   }
 
+  function commitToStopped(next, { stopBeepFirst = false } = {}) {
+    if (stopBeepFirst) stopBeep();
+    shared = next;
+    saveShared();
+    chrome.runtime.sendMessage({ type: 'CANCEL_FINISH' });
+    render();
+  }
+
   function start() {
-    let secs = shared.pausedRemaining;
-    if (secs <= 0) secs = shared.initialSeconds;
-    startCountdown(secs);
+    const next = Lib.transitionStart(shared, Date.now());
+    if (next === shared) return;
+    commitToRunning(next);
   }
 
   function pause() {
-    if (!isRunning()) return;
-    shared.pausedRemaining = Math.max(0, (shared.endTimestamp - Date.now()) / 1000);
-    shared.endTimestamp = null;
-    saveShared();
-    chrome.runtime.sendMessage({ type: 'CANCEL_FINISH' });
-    render();
+    const next = Lib.transitionPause(shared, Date.now());
+    if (next === shared) return;
+    commitToStopped(next);
   }
 
   function reset() {
-    stopBeep();
-    shared.endTimestamp = null;
-    shared.pausedRemaining = shared.initialSeconds;
-    saveShared();
-    chrome.runtime.sendMessage({ type: 'CANCEL_FINISH' });
-    render();
+    const next = Lib.transitionReset(shared);
+    commitToStopped(next, { stopBeepFirst: true });
   }
 
   function restartWith(seconds) {
-    if (seconds <= 0) return;
-    shared.initialSeconds = seconds;
-    startCountdown(seconds);
+    const next = Lib.transitionRestart(shared, seconds, Date.now());
+    if (next === shared) return;
+    commitToRunning(next);
   }
 
   function adjust(deltaSeconds) {
-    if (isRunning()) {
-      // 実行中: 残り時間を増減
-      const newEnd = shared.endTimestamp + deltaSeconds * 1000;
-      const remaining = (newEnd - Date.now()) / 1000;
-      if (remaining < 1) return;
-      shared.endTimestamp = newEnd;
-      shared.pausedRemaining = remaining;
+    const now = Date.now();
+    const wasRunning = Lib.isRunning(shared, now);
+    const wasFinished = Lib.isFinished(shared, now);
+    const next = Lib.transitionAdjust(shared, deltaSeconds, now);
+    if (next === shared) return;
+
+    if (wasRunning) {
+      shared = next;
       chrome.runtime.sendMessage({ type: 'SCHEDULE_FINISH', when: shared.endTimestamp });
       saveShared();
       render();
-      return;
+    } else if (wasFinished && deltaSeconds > 0) {
+      commitToRunning(next);
+    } else {
+      shared = next;
+      saveShared();
+      render();
     }
-
-    if (isFinished() && deltaSeconds > 0) {
-      // 終了状態: 延長して即再スタート
-      restartWith(deltaSeconds);
-      return;
-    }
-
-    // 一時停止中など: 設定時間そのものを増減
-    const newInitial = Math.max(0, shared.initialSeconds + deltaSeconds);
-    shared.initialSeconds = newInitial;
-    shared.pausedRemaining = newInitial;
-    saveShared();
-    render();
   }
 
   function applyDirectInput() {
-    const m = Math.max(0, Math.min(999, parseInt(minutesInput.value, 10) || 0));
-    const s = Math.max(0, Math.min(59, parseInt(secondsInput.value, 10) || 0));
-    const total = m * 60 + s;
-    stopBeep();
-    shared.initialSeconds = total;
-    shared.pausedRemaining = total;
-    shared.endTimestamp = null;
-    saveShared();
-    chrome.runtime.sendMessage({ type: 'CANCEL_FINISH' });
-    render();
+    const next = Lib.transitionDirectInput(shared, minutesInput.value, secondsInput.value);
+    commitToStopped(next, { stopBeepFirst: true });
   }
 
   // ============================================================
@@ -246,12 +209,13 @@
       render();
       if (isRunning()) {
         rafId = setTimeout(loop, TICK_INTERVAL_MS);
-      } else if (shared.endTimestamp != null && shared.endTimestamp <= Date.now()) {
-        // タイマー満了 (ローカル検知)
-        shared.endTimestamp = null;
-        shared.pausedRemaining = 0;
-        saveShared();
-        render();
+      } else {
+        const next = Lib.transitionTickExpiry(shared, Date.now());
+        if (next !== shared) {
+          shared = next;
+          saveShared();
+          render();
+        }
       }
     };
     loop();
@@ -377,13 +341,15 @@
   function updateDisplayFontSize() {
     if (!display) return;
     const text = display.textContent || '00:00';
-    const charCount = text.length;
-    const availableWidth = Math.max(40, ui.width - 24);
-    const availableHeight = Math.max(28, ui.height - FONT_RESERVED_HEIGHT);
-    // tabular-nums の数字は font-size の約 0.6 倍幅
-    const sizeByWidth = availableWidth / (charCount * FONT_CHAR_WIDTH_RATIO);
-    const sizeByHeight = availableHeight * 0.95;
-    const size = Math.max(FONT_MIN, Math.min(FONT_MAX, Math.min(sizeByWidth, sizeByHeight)));
+    const size = Lib.computeDisplayFontSize({
+      width: ui.width,
+      height: ui.height,
+      charCount: text.length,
+      reservedHeight: FONT_RESERVED_HEIGHT,
+      charWidthRatio: FONT_CHAR_WIDTH_RATIO,
+      min: FONT_MIN,
+      max: FONT_MAX
+    });
     display.style.fontSize = size + 'px';
   }
 
@@ -444,8 +410,12 @@
   }
 
   function setSize(width, height) {
-    ui.width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(width)));
-    ui.height = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, Math.round(height)));
+    const clamped = Lib.clampSize(width, height, {
+      minW: MIN_WIDTH, maxW: MAX_WIDTH,
+      minH: MIN_HEIGHT, maxH: MAX_HEIGHT
+    });
+    ui.width = clamped.width;
+    ui.height = clamped.height;
     if (root) {
       root.style.width = ui.width + 'px';
       if (!ui.minimized) root.style.height = ui.height + 'px';
