@@ -40,30 +40,38 @@
   let themeBtn = null;
   let rafId = null;
 
-  const THEME_ORDER = ['auto', 'light', 'dark'];
   const THEME_LABELS = {
-    auto: { icon: 'A', name: '自動' },
     light: { icon: '☀', name: 'ライト' },
     dark: { icon: '☽', name: 'ダーク' }
   };
+
+  function getEffectiveTheme() {
+    if (ui.theme === 'light' || ui.theme === 'dark') return ui.theme;
+    // auto: OS の設定に追従
+    try {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } catch (e) {
+      return 'dark';
+    }
+  }
 
   function applyTheme() {
     if (!root) return;
     root.classList.remove('ot-theme-auto', 'ot-theme-light', 'ot-theme-dark');
     root.classList.add('ot-theme-' + (ui.theme || 'auto'));
     if (themeBtn) {
-      const cur = THEME_LABELS[ui.theme] || THEME_LABELS.auto;
-      const nextIdx = (THEME_ORDER.indexOf(ui.theme) + 1) % THEME_ORDER.length;
-      const next = THEME_LABELS[THEME_ORDER[nextIdx]];
+      const eff = getEffectiveTheme();
+      const cur = THEME_LABELS[eff];
+      const next = eff === 'light' ? THEME_LABELS.dark : THEME_LABELS.light;
       themeBtn.textContent = cur.icon;
       themeBtn.setAttribute('aria-label', `テーマ: ${cur.name} (クリックで${next.name})`);
       themeBtn.title = `テーマ: ${cur.name} (クリックで${next.name})`;
     }
   }
 
-  function cycleTheme() {
-    const idx = THEME_ORDER.indexOf(ui.theme);
-    ui.theme = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
+  function toggleTheme() {
+    const eff = getEffectiveTheme();
+    ui.theme = eff === 'light' ? 'dark' : 'light';
     applyTheme();
     saveUi();
   }
@@ -466,7 +474,7 @@
     themeBtn = document.createElement('button');
     themeBtn.type = 'button';
     themeBtn.className = 'ot-icon-btn';
-    themeBtn.addEventListener('click', cycleTheme);
+    themeBtn.addEventListener('click', toggleTheme);
 
     minBtn = document.createElement('button');
     minBtn.type = 'button';
@@ -663,6 +671,12 @@
       }
     }
   });
+
+  try {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (ui.theme !== 'light' && ui.theme !== 'dark') applyTheme();
+    });
+  } catch (e) {}
 
   loadAll();
 })();
