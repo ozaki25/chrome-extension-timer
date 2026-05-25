@@ -1,3 +1,75 @@
+/* ===== カラーテーマ (CSS Variables) ===== */
+#overlay-timer-root {
+  /* ダーク (デフォルト) */
+  --ot-bg: #11141c;
+  --ot-fg: #ffffff;
+  --ot-border: rgba(255, 255, 255, 0.2);
+  --ot-btn-bg: #2a2f3d;
+  --ot-btn-bg-hover: #3a4154;
+  --ot-btn-border: rgba(255, 255, 255, 0.25);
+  --ot-icon-hover: rgba(255, 255, 255, 0.15);
+  --ot-primary: #1d4ed8;
+  --ot-primary-hover: #2563eb;
+  --ot-accent: #ffd54a;
+  --ot-finished-bg: #7f1d1d;
+  --ot-finished-border: #fca5a5;
+  --ot-finished-status: #fff5b0;
+  --ot-input-bg: #11141c;
+  --ot-input-border: rgba(255, 255, 255, 0.35);
+  --ot-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --ot-resize-tick: rgba(255, 255, 255, 0.45);
+  --ot-divider: rgba(255, 255, 255, 0.2);
+}
+
+/* ライト (OS 追従 = ot-theme-auto + light) */
+@media (prefers-color-scheme: light) {
+  #overlay-timer-root.ot-theme-auto {
+    --ot-bg: #ffffff;
+    --ot-fg: #1a1d24;
+    --ot-border: rgba(0, 0, 0, 0.2);
+    --ot-btn-bg: #f1f3f5;
+    --ot-btn-bg-hover: #e2e6eb;
+    --ot-btn-border: rgba(0, 0, 0, 0.15);
+    --ot-icon-hover: rgba(0, 0, 0, 0.08);
+    --ot-primary: #1d4ed8;
+    --ot-primary-hover: #2563eb;
+    --ot-accent: #b45309;
+    --ot-finished-bg: #fee2e2;
+    --ot-finished-border: #dc2626;
+    --ot-finished-status: #991b1b;
+    --ot-input-bg: #ffffff;
+    --ot-input-border: rgba(0, 0, 0, 0.3);
+    --ot-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    --ot-resize-tick: rgba(0, 0, 0, 0.4);
+    --ot-divider: rgba(0, 0, 0, 0.12);
+  }
+}
+
+/* ライト強制 */
+#overlay-timer-root.ot-theme-light {
+  --ot-bg: #ffffff;
+  --ot-fg: #1a1d24;
+  --ot-border: rgba(0, 0, 0, 0.2);
+  --ot-btn-bg: #f1f3f5;
+  --ot-btn-bg-hover: #e2e6eb;
+  --ot-btn-border: rgba(0, 0, 0, 0.15);
+  --ot-icon-hover: rgba(0, 0, 0, 0.08);
+  --ot-primary: #1d4ed8;
+  --ot-primary-hover: #2563eb;
+  --ot-accent: #b45309;
+  --ot-finished-bg: #fee2e2;
+  --ot-finished-border: #dc2626;
+  --ot-finished-status: #991b1b;
+  --ot-input-bg: #ffffff;
+  --ot-input-border: rgba(0, 0, 0, 0.3);
+  --ot-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --ot-resize-tick: rgba(0, 0, 0, 0.4);
+  --ot-divider: rgba(0, 0, 0, 0.12);
+}
+
+/* ダーク強制 (デフォルト変数のままなので個別指定なし) */
+
+/* ===== Layout ===== */
 #overlay-timer-root {
   position: fixed !important;
   z-index: 2147483647 !important;
@@ -11,19 +83,19 @@
   height: 280px;
   min-width: 180px;
   min-height: 240px;
-  background: #11141c;
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--ot-bg);
+  color: var(--ot-fg);
+  border: 1px solid var(--ot-border);
   border-radius: 12px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans",
     "Yu Gothic", system-ui, sans-serif;
   font-size: 13px;
   line-height: 1.4;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--ot-shadow);
   user-select: none;
   -webkit-user-select: none;
   overflow: hidden;
-  transition: opacity 0.15s ease, background-color 0.2s ease;
+  transition: opacity 0.15s ease, background-color 0.2s ease, color 0.2s ease;
 }
 
 #overlay-timer-root,
@@ -51,7 +123,7 @@
 #overlay-timer-root .ot-icon-btn {
   appearance: none;
   background: transparent;
-  color: #ffffff;
+  color: var(--ot-fg);
   border: 1px solid transparent;
   font-size: 14px;
   line-height: 1;
@@ -63,7 +135,7 @@
 }
 
 #overlay-timer-root .ot-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--ot-icon-hover);
 }
 
 #overlay-timer-root .ot-display {
@@ -74,7 +146,7 @@
   letter-spacing: 0.02em;
   padding: 6px 0;
   cursor: move;
-  color: #ffffff;
+  color: var(--ot-fg);
   flex: 1 1 auto;
   display: flex;
   align-items: center;
@@ -88,100 +160,12 @@
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.1em;
-  color: #ffd54a;
+  color: var(--ot-accent);
   min-height: 16px;
   text-transform: uppercase;
 }
 
 #overlay-timer-root .ot-status:empty {
-  display: none;
-}
-
-#overlay-timer-root .ot-adjusters,
-#overlay-timer-root .ot-controls {
-  display: flex;
-  gap: 6px;
-}
-
-#overlay-timer-root .ot-adjusters .ot-btn,
-#overlay-timer-root .ot-controls .ot-btn {
-  flex: 1;
-}
-
-#overlay-timer-root .ot-btn {
-  appearance: none;
-  background: #2a2f3d;
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 8px;
-  padding: 8px 8px;
-  font-size: 12px;
-  min-height: 32px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.1s ease, border-color 0.1s ease;
-}
-
-#overlay-timer-root .ot-btn:hover {
-  background: #3a4154;
-}
-
-#overlay-timer-root .ot-btn.ot-primary {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
-  color: #ffffff;
-  font-weight: 600;
-}
-
-#overlay-timer-root .ot-btn.ot-primary:hover {
-  background: #2563eb;
-  border-color: #2563eb;
-}
-
-#overlay-timer-root .ot-btn:focus-visible,
-#overlay-timer-root .ot-icon-btn:focus-visible,
-#overlay-timer-root input[type="range"]:focus-visible {
-  outline: 2px solid #ffd54a;
-  outline-offset: 2px;
-}
-
-#overlay-timer-root .ot-sliders {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-top: 4px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-#overlay-timer-root .ot-slider {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #ffffff;
-}
-
-#overlay-timer-root .ot-slider span {
-  width: 48px;
-  flex-shrink: 0;
-}
-
-#overlay-timer-root .ot-slider input[type="range"] {
-  flex: 1;
-  margin: 0;
-  accent-color: #60a5fa;
-}
-
-#overlay-timer-root.ot-minimized {
-  width: auto;
-  padding: 6px 10px;
-}
-
-#overlay-timer-root.ot-minimized .ot-adjusters,
-#overlay-timer-root.ot-minimized .ot-controls,
-#overlay-timer-root.ot-minimized .ot-sliders,
-#overlay-timer-root.ot-minimized .ot-direct,
-#overlay-timer-root.ot-minimized .ot-resize {
   display: none;
 }
 
@@ -201,9 +185,9 @@
   font-family: inherit;
   font-variant-numeric: tabular-nums;
   text-align: center;
-  background: #11141c;
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: var(--ot-input-bg);
+  color: var(--ot-fg);
+  border: 1px solid var(--ot-input-border);
   border-radius: 6px;
 }
 
@@ -214,14 +198,103 @@
 }
 
 #overlay-timer-root .ot-num:focus-visible {
-  outline: 2px solid #ffd54a;
+  outline: 2px solid var(--ot-accent);
   outline-offset: 2px;
-  border-color: #ffd54a;
+  border-color: var(--ot-accent);
 }
 
 #overlay-timer-root .ot-unit {
   font-size: 12px;
+  color: var(--ot-fg);
+}
+
+#overlay-timer-root .ot-adjusters,
+#overlay-timer-root .ot-controls {
+  display: flex;
+  gap: 6px;
+}
+
+#overlay-timer-root .ot-adjusters .ot-btn,
+#overlay-timer-root .ot-controls .ot-btn {
+  flex: 1;
+}
+
+#overlay-timer-root .ot-btn {
+  appearance: none;
+  background: var(--ot-btn-bg);
+  color: var(--ot-fg);
+  border: 1px solid var(--ot-btn-border);
+  border-radius: 8px;
+  padding: 8px 8px;
+  font-size: 12px;
+  min-height: 32px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.1s ease, border-color 0.1s ease;
+}
+
+#overlay-timer-root .ot-btn:hover {
+  background: var(--ot-btn-bg-hover);
+}
+
+#overlay-timer-root .ot-btn.ot-primary {
+  background: var(--ot-primary);
+  border-color: var(--ot-primary);
   color: #ffffff;
+  font-weight: 600;
+}
+
+#overlay-timer-root .ot-btn.ot-primary:hover {
+  background: var(--ot-primary-hover);
+  border-color: var(--ot-primary-hover);
+}
+
+#overlay-timer-root .ot-btn:focus-visible,
+#overlay-timer-root .ot-icon-btn:focus-visible,
+#overlay-timer-root input[type="range"]:focus-visible {
+  outline: 2px solid var(--ot-accent);
+  outline-offset: 2px;
+}
+
+#overlay-timer-root .ot-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--ot-divider);
+}
+
+#overlay-timer-root .ot-slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ot-fg);
+}
+
+#overlay-timer-root .ot-slider span {
+  width: 48px;
+  flex-shrink: 0;
+}
+
+#overlay-timer-root .ot-slider input[type="range"] {
+  flex: 1;
+  margin: 0;
+  accent-color: var(--ot-primary);
+}
+
+#overlay-timer-root.ot-minimized {
+  width: auto;
+  height: auto;
+  padding: 6px 10px;
+}
+
+#overlay-timer-root.ot-minimized .ot-adjusters,
+#overlay-timer-root.ot-minimized .ot-controls,
+#overlay-timer-root.ot-minimized .ot-sliders,
+#overlay-timer-root.ot-minimized .ot-direct,
+#overlay-timer-root.ot-minimized .ot-resize {
+  display: none;
 }
 
 #overlay-timer-root.ot-minimized .ot-display {
@@ -242,34 +315,33 @@
       135deg,
       transparent 0,
       transparent 40%,
-      rgba(255, 255, 255, 0.45) 40%,
-      rgba(255, 255, 255, 0.45) 50%,
+      var(--ot-resize-tick) 40%,
+      var(--ot-resize-tick) 50%,
       transparent 50%,
       transparent 70%,
-      rgba(255, 255, 255, 0.45) 70%,
-      rgba(255, 255, 255, 0.45) 80%,
+      var(--ot-resize-tick) 70%,
+      var(--ot-resize-tick) 80%,
       transparent 80%
     );
 }
 
 #overlay-timer-root .ot-resize:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--ot-icon-hover);
 }
 
 #overlay-timer-root .ot-resize:focus-visible {
-  outline: 2px solid #ffd54a;
+  outline: 2px solid var(--ot-accent);
   outline-offset: -2px;
 }
 
 #overlay-timer-root.ot-finished-state {
-  background: #7f1d1d;
-  border-color: #fca5a5;
+  background: var(--ot-finished-bg);
+  border-color: var(--ot-finished-border);
 }
 
 #overlay-timer-root.ot-finished-state .ot-status {
-  color: #fff5b0;
+  color: var(--ot-finished-status);
 }
-
 
 .ot-sr-only {
   position: absolute !important;

@@ -24,7 +24,8 @@
     width: 240,
     height: 280,
     opacity: 0.95,
-    minimized: false
+    minimized: false,
+    theme: 'auto'
   };
 
   let visible = false;
@@ -36,7 +37,36 @@
   let resizeHandle = null;
   let minutesInput = null;
   let secondsInput = null;
+  let themeBtn = null;
   let rafId = null;
+
+  const THEME_ORDER = ['auto', 'light', 'dark'];
+  const THEME_LABELS = {
+    auto: { icon: 'A', name: '自動' },
+    light: { icon: '☀', name: 'ライト' },
+    dark: { icon: '☽', name: 'ダーク' }
+  };
+
+  function applyTheme() {
+    if (!root) return;
+    root.classList.remove('ot-theme-auto', 'ot-theme-light', 'ot-theme-dark');
+    root.classList.add('ot-theme-' + (ui.theme || 'auto'));
+    if (themeBtn) {
+      const cur = THEME_LABELS[ui.theme] || THEME_LABELS.auto;
+      const nextIdx = (THEME_ORDER.indexOf(ui.theme) + 1) % THEME_ORDER.length;
+      const next = THEME_LABELS[THEME_ORDER[nextIdx]];
+      themeBtn.textContent = cur.icon;
+      themeBtn.setAttribute('aria-label', `テーマ: ${cur.name} (クリックで${next.name})`);
+      themeBtn.title = `テーマ: ${cur.name} (クリックで${next.name})`;
+    }
+  }
+
+  function cycleTheme() {
+    const idx = THEME_ORDER.indexOf(ui.theme);
+    ui.theme = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
+    applyTheme();
+    saveUi();
+  }
   const MIN_WIDTH = 180;
   const MAX_WIDTH = 640;
   const MIN_HEIGHT = 240;
@@ -432,6 +462,12 @@
 
     const headerBtns = document.createElement('div');
     headerBtns.className = 'ot-header-btns';
+
+    themeBtn = document.createElement('button');
+    themeBtn.type = 'button';
+    themeBtn.className = 'ot-icon-btn';
+    themeBtn.addEventListener('click', cycleTheme);
+
     minBtn = document.createElement('button');
     minBtn.type = 'button';
     minBtn.className = 'ot-icon-btn';
@@ -448,6 +484,7 @@
     closeBtn.textContent = '×';
     closeBtn.setAttribute('aria-label', '閉じる');
     closeBtn.addEventListener('click', () => hide());
+    headerBtns.appendChild(themeBtn);
     headerBtns.appendChild(minBtn);
     headerBtns.appendChild(closeBtn);
 
@@ -576,6 +613,7 @@
     makeDraggable(header);
     makeDraggable(display);
     makeResizable(resizeHandle);
+    applyTheme();
   }
 
   function show() {
@@ -620,6 +658,7 @@
       if (root) {
         root.style.left = ui.position.x + 'px';
         root.style.top = ui.position.y + 'px';
+        applyTheme();
         render();
       }
     }
