@@ -21,7 +21,8 @@
   // Per-tab UI state (also persisted, but visibility is per-tab in memory)
   let ui = {
     position: { x: 24, y: 24 },
-    scale: 1,
+    width: 240,
+    height: 280,
     opacity: 0.95,
     minimized: false
   };
@@ -36,7 +37,10 @@
   let minutesInput = null;
   let secondsInput = null;
   let rafId = null;
-  const BASE_WIDTH = 240;
+  const MIN_WIDTH = 180;
+  const MAX_WIDTH = 640;
+  const MIN_HEIGHT = 220;
+  const MAX_HEIGHT = 640;
 
   const pad = (n) => String(n).padStart(2, '0');
 
@@ -92,8 +96,10 @@
     minBtn.textContent = ui.minimized ? '▢' : '_';
     minBtn.setAttribute('aria-label', ui.minimized ? '展開' : '最小化');
     minBtn.setAttribute('aria-expanded', ui.minimized ? 'false' : 'true');
-    root.style.transform = `scale(${ui.scale})`;
+    root.style.width = ui.width + 'px';
+    root.style.height = ui.minimized ? 'auto' : ui.height + 'px';
     root.style.opacity = String(ui.opacity);
+    updateDisplayFontSize();
     if (opacityInput && document.activeElement !== opacityInput) opacityInput.value = String(ui.opacity);
 
     const baseSeconds = isRunning() ? Math.ceil((shared.endTimestamp - Date.now()) / 1000) : shared.pausedRemaining;
@@ -275,8 +281,8 @@
       const point = e.touches ? e.touches[0] : e;
       const dx = point.clientX - startX;
       const dy = point.clientY - startY;
-      const w = root.offsetWidth * ui.scale;
-      const h = root.offsetHeight * ui.scale;
+      const w = root.offsetWidth;
+      const h = root.offsetHeight;
       const newX = Math.max(0, Math.min(window.innerWidth - w, origX + dx));
       const newY = Math.max(0, Math.min(window.innerHeight - h, origY + dy));
       root.style.left = newX + 'px';
@@ -297,19 +303,40 @@
     window.addEventListener('touchend', onUp);
   }
 
-  function setScale(newScale) {
-    ui.scale = Math.max(0.5, Math.min(2.5, newScale));
-    if (root) root.style.transform = `scale(${ui.scale})`;
+  function setSize(width, height) {
+    ui.width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(width)));
+    ui.height = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, Math.round(height)));
+    if (root) {
+      root.style.width = ui.width + 'px';
+      if (!ui.minimized) root.style.height = ui.height + 'px';
+      updateDisplayFontSize();
+    }
+  }
+
+  function updateDisplayFontSize() {
+    if (!display) return;
+    const text = display.textContent || '00:00';
+    const charCount = text.length;
+    // ヘッダー・ステータス・入力欄・ボタン群・スライダー・余白の固定分を控除
+    const reservedHeight = 200;
+    const availableWidth = Math.max(40, ui.width - 24);
+    const availableHeight = Math.max(28, ui.height - reservedHeight);
+    // tabular-nums の数字は font-size の約 0.6 倍幅
+    const sizeByWidth = availableWidth / (charCount * 0.6);
+    const sizeByHeight = availableHeight * 0.95;
+    const size = Math.max(20, Math.min(140, Math.min(sizeByWidth, sizeByHeight)));
+    display.style.fontSize = size + 'px';
   }
 
   function makeResizable(handle) {
-    let startX = 0, startY = 0, startScale = 1, resizing = false;
+    let startX = 0, startY = 0, startW = 0, startH = 0, resizing = false;
     const onDown = (e) => {
       resizing = true;
       const point = e.touches ? e.touches[0] : e;
       startX = point.clientX;
       startY = point.clientY;
-      startScale = ui.scale;
+      startW = ui.width;
+      startH = ui.height;
       e.preventDefault();
       e.stopPropagation();
     };
@@ -318,8 +345,7 @@
       const point = e.touches ? e.touches[0] : e;
       const dx = point.clientX - startX;
       const dy = point.clientY - startY;
-      const delta = (dx + dy) / 2;
-      setScale(startScale + delta / BASE_WIDTH);
+      setSize(startW + dx, startH + dy);
     };
     const onUp = () => {
       if (resizing) {
@@ -334,26 +360,19 @@
     window.addEventListener('touchmove', onMove, { passive: false });
     window.addEventListener('touchend', onUp);
     handle.addEventListener('keydown', (e) => {
-      const step = e.shiftKey ? 0.2 : 0.05;
+      const step = e.shiftKey ? 40 : 10;
       let changed = true;
+      let w = ui.width, h = ui.height;
       switch (e.key) {
-        case 'ArrowRight':
-        case 'ArrowDown':
-        case '+':
-          setScale(ui.scale + step);
-          break;
-        case 'ArrowLeft':
-        case 'ArrowUp':
-        case '-':
-          setScale(ui.scale - step);
-          break;
-        case 'Home':
-          setScale(1);
-          break;
-        default:
-          changed = false;
+        case 'ArrowRight': w += step; break;
+        case 'ArrowLeft': w -= step; break;
+        case 'ArrowDown': h += step; break;
+        case 'ArrowUp': h -= step; break;
+        case 'Home': w = 240; h = 280; break;
+        default: changed = false;
       }
       if (changed) {
+        setSize(w, h);
         e.preventDefault();
         saveUi();
       }
@@ -377,7 +396,8 @@
     root.setAttribute('aria-label', 'オーバーレイタイマー');
     root.style.left = ui.position.x + 'px';
     root.style.top = ui.position.y + 'px';
-    root.style.transformOrigin = 'top left';
+    root.style.width = ui.width + 'px';
+    root.style.height = ui.minimized ? 'auto' : ui.height + 'px';
 
     const header = document.createElement('div');
     header.className = 'ot-header';
