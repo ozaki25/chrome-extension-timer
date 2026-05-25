@@ -124,10 +124,11 @@ chrome-extension-timer/
 Node 標準の `node:test` で純粋関数（時刻フォーマット / 状態遷移 / レイアウト計算）を単体テストしています。依存パッケージは無し。
 
 ```bash
-npm test
+npm test            # テスト実行
+npm run test:coverage  # カバレッジ付きで実行
 ```
 
-CI は GitHub Actions (`.github/workflows/test.yml`) で push / PR 時に自動実行されます。E2E は含めず、ブラウザ無しで完結します。
+CI は GitHub Actions (`.github/workflows/test.yml`) で push / PR 時に自動実行され、カバレッジ表が job の Summary に表示されます。E2E は含めず、ブラウザ無しで完結します。
 
 ### アイコンの再生成
 

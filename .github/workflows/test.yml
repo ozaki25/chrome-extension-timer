@@ -20,5 +20,15 @@ jobs:
           node --check lib.js
           node --check background.js
           node --check content.js
-      - name: Run unit tests
-        run: npm test
+      - name: Run unit tests with coverage
+        run: npm run test:coverage | tee coverage.txt
+      - name: Coverage summary
+        if: always()
+        run: |
+          {
+            echo '## Test coverage'
+            echo ''
+            echo '```'
+            sed -n '/start of coverage report/,/end of coverage report/p' coverage.txt | sed 's/^# \{0,1\}//'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
