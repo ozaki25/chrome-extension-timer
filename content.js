@@ -120,6 +120,8 @@
     let secs = shared.pausedRemaining;
     if (secs <= 0) secs = shared.initialSeconds;
     if (secs <= 0) return;
+    stopBeep();
+    if (root) root.classList.remove('ot-finished-state');
     shared.endTimestamp = Date.now() + secs * 1000;
     shared.pausedRemaining = secs;
     saveShared();
@@ -137,6 +139,8 @@
   }
 
   function reset() {
+    stopBeep();
+    if (root) root.classList.remove('ot-finished-state');
     shared.endTimestamp = null;
     shared.pausedRemaining = shared.initialSeconds;
     saveShared();
@@ -161,31 +165,68 @@
     render();
   }
 
+  let beepCtx = null;
+  let beepTimers = [];
+
+  function stopBeep() {
+    beepTimers.forEach((id) => clearTimeout(id));
+    beepTimers = [];
+    if (beepCtx) {
+      try { beepCtx.close(); } catch (e) {}
+      beepCtx = null;
+    }
+  }
+
   function playBeep() {
+    stopBeep();
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const playOne = (when, freq) => {
+      beepCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = beepCtx;
+      const playChirp = (when, freq, duration) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = 'sine';
+        osc.type = 'square';
         osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.0001, ctx.currentTime + when);
-        gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + when + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + when + 0.45);
+        const start = ctx.currentTime + when;
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.4, start + 0.03);
+        gain.gain.setValueAtTime(0.4, start + duration - 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
         osc.connect(gain).connect(ctx.destination);
-        osc.start(ctx.currentTime + when);
-        osc.stop(ctx.currentTime + when + 0.5);
+        osc.start(start);
+        osc.stop(start + duration + 0.05);
       };
-      playOne(0, 880);
-      playOne(0.55, 880);
-      playOne(1.1, 1175);
+
+      // 8秒間、はっきりとしたパターンで鳴らす
+      const pattern = [
+        [0.0, 880, 0.25],
+        [0.35, 1175, 0.25],
+        [0.7, 880, 0.25],
+        [1.05, 1175, 0.6],
+        [1.9, 880, 0.25],
+        [2.25, 1175, 0.25],
+        [2.6, 880, 0.25],
+        [2.95, 1175, 0.6],
+        [3.8, 880, 0.25],
+        [4.15, 1175, 0.25],
+        [4.5, 880, 0.25],
+        [4.85, 1175, 0.6],
+        [5.7, 880, 0.25],
+        [6.05, 1175, 0.25],
+        [6.4, 880, 0.25],
+        [6.75, 1175, 0.6]
+      ];
+      pattern.forEach(([when, freq, dur]) => playChirp(when, freq, dur));
+
+      // 8秒経過後に自動停止
+      const id = setTimeout(stopBeep, 8000);
+      beepTimers.push(id);
     } catch (e) {}
   }
 
   function onFinish() {
     if (root) {
-      root.classList.add('ot-flash');
-      setTimeout(() => root?.classList.remove('ot-flash'), 4000);
+      root.classList.add('ot-finished-state');
     }
     playBeep();
   }
