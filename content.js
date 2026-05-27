@@ -7,6 +7,14 @@
   window.__overlayTimerInjected__ = true;
 
   const Lib = (typeof globalThis !== 'undefined' && globalThis.OverlayTimerLib) || window.OverlayTimerLib;
+  if (!Lib) {
+    // lib.js が同じコンテキストに注入されていない (古いビルドの content.js だけが
+    // 残っているタブなど)。エラーで埋め尽くされる前に降りる。
+    // 再注入を許すため __overlayTimerInjected__ も解除しておく。
+    console.warn('[Overlay Timer] lib.js が見つかりません。タブをリロードしてください。');
+    delete window.__overlayTimerInjected__;
+    return;
+  }
 
   // ============================================================
   // 定数
