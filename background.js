@@ -8,7 +8,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     try {
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ['content.js']
+        files: ['lib.js', 'content.js']
       });
       await chrome.scripting.insertCSS({
         target: { tabId: tab.id },
