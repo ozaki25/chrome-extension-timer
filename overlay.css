@@ -283,6 +283,31 @@
   accent-color: var(--ot-primary);
 }
 
+#overlay-timer-root .ot-sound-select {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--ot-input-bg);
+  color: var(--ot-fg);
+  border: 1px solid var(--ot-input-border);
+  border-radius: 6px;
+}
+
+#overlay-timer-root .ot-sound-select:focus-visible {
+  outline: 2px solid var(--ot-accent);
+  outline-offset: 2px;
+  border-color: var(--ot-accent);
+}
+
+#overlay-timer-root .ot-sound-preview {
+  font-size: 12px;
+  min-width: 26px;
+  min-height: 26px;
+  border: 1px solid var(--ot-btn-border);
+}
+
 #overlay-timer-root.ot-minimized {
   width: auto;
   height: auto;

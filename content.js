@@ -33,6 +33,16 @@
     dark: { icon: '☽', name: 'ダーク' }
   };
 
+  // 終了音プリセット (key, ラベル)。再生実装は playSound 内で分岐
+  const SOUND_PRESETS = [
+    { key: 'chime', label: 'チャイム (やさしい)' },
+    { key: 'bell', label: 'ベル (連打)' },
+    { key: 'buzzer', label: 'ブザー (強め)' },
+    { key: 'siren', label: 'サイレン' },
+    { key: 'alarm', label: '目覚まし (ピピピ)' }
+  ];
+  const DEFAULT_SOUND = 'bell';
+
   // ============================================================
   // 状態
   // ============================================================
@@ -50,7 +60,8 @@
     height: DEFAULT_HEIGHT,
     opacity: 0.95,
     minimized: false,
-    theme: 'auto'
+    theme: 'auto',
+    sound: DEFAULT_SOUND
   };
 
   // DOM 参照
@@ -60,6 +71,7 @@
   let startBtn = null;
   let minBtn = null;
   let themeBtn = null;
+  let soundSelect = null;
   let opacityInput = null;
   let resizeHandle = null;
   let minutesInput = null;
@@ -247,50 +259,179 @@
   }
 
   function playBeep() {
+    playSound(ui.sound || DEFAULT_SOUND);
+  }
+
+  // プリセット音をその場で試聴 (現在のタイマー状態には影響しない)
+  function previewSound(key) {
+    playSound(key);
+  }
+
+  function playSound(key) {
     stopBeep();
     try {
       beepCtx = new (window.AudioContext || window.webkitAudioContext)();
       const ctx = beepCtx;
-
-      // ベル / チャイム風の音色 (倍音を重ねて減衰させる)
-      const partials = [
-        { mult: 1.0, gain: 0.35, decay: 1.0 },
-        { mult: 2.0, gain: 0.18, decay: 0.7 },
-        { mult: 3.0, gain: 0.10, decay: 0.5 },
-        { mult: 4.2, gain: 0.06, decay: 0.35 }
-      ];
-      const playChime = (when, freq, duration) => {
-        const start = ctx.currentTime + when;
-        partials.forEach(({ mult, gain, decay }) => {
-          const osc = ctx.createOscillator();
-          const g = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.value = freq * mult;
-          const tail = duration * decay;
-          g.gain.setValueAtTime(0.0001, start);
-          g.gain.exponentialRampToValueAtTime(gain, start + 0.008);
-          g.gain.exponentialRampToValueAtTime(0.0001, start + tail);
-          osc.connect(g).connect(ctx.destination);
-          osc.start(start);
-          osc.stop(start + tail + 0.1);
-        });
+      const renderers = {
+        chime: renderChime,
+        bell: renderBell,
+        buzzer: renderBuzzer,
+        siren: renderSiren,
+        alarm: renderAlarm
       };
-
-      // ding-dong (C6 → G5) を 3 回繰り返す
-      const C6 = 1046.5;
-      const G5 = 783.99;
-      const tone = 1.6;
-      const cycle = 2.0;
-      const cycles = 3;
-      for (let i = 0; i < cycles; i++) {
-        playChime(i * cycle + 0.0, C6, tone);
-        playChime(i * cycle + 0.45, G5, tone);
-      }
-
-      const total = cycles * cycle + tone;
+      const render = renderers[key] || renderers[DEFAULT_SOUND];
+      const total = render(ctx);
       const id = setTimeout(stopBeep, total * 1000);
       beepTimers.push(id);
     } catch (e) {}
+  }
+
+  // --- 個別レンダラ。戻り値は鳴り終わるまでの秒数 (停止用) ---
+
+  // やさしい ding-dong チャイム (旧デフォルト)
+  function renderChime(ctx) {
+    const partials = [
+      { mult: 1.0, gain: 0.35, decay: 1.0 },
+      { mult: 2.0, gain: 0.18, decay: 0.7 },
+      { mult: 3.0, gain: 0.10, decay: 0.5 },
+      { mult: 4.2, gain: 0.06, decay: 0.35 }
+    ];
+    const playChime = (when, freq, duration) => {
+      const start = ctx.currentTime + when;
+      partials.forEach(({ mult, gain, decay }) => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq * mult;
+        const tail = duration * decay;
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.exponentialRampToValueAtTime(gain, start + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + tail);
+        osc.connect(g).connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + tail + 0.1);
+      });
+    };
+    const C6 = 1046.5, G5 = 783.99;
+    const tone = 1.6, cycle = 2.0, cycles = 3;
+    for (let i = 0; i < cycles; i++) {
+      playChime(i * cycle + 0.0, C6, tone);
+      playChime(i * cycle + 0.45, G5, tone);
+    }
+    return cycles * cycle + tone;
+  }
+
+  // 金属ベル (倍音強め) を 0.18 秒間隔で連打
+  function renderBell(ctx) {
+    const partials = [
+      { mult: 1.0, gain: 0.45, decay: 0.6 },
+      { mult: 2.76, gain: 0.30, decay: 0.45 },
+      { mult: 5.4, gain: 0.18, decay: 0.3 },
+      { mult: 8.93, gain: 0.10, decay: 0.2 }
+    ];
+    const strike = (when, freq) => {
+      const start = ctx.currentTime + when;
+      partials.forEach(({ mult, gain, decay }) => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq * mult;
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.exponentialRampToValueAtTime(gain, start + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + decay);
+        osc.connect(g).connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + decay + 0.05);
+      });
+    };
+    const freq = 880;
+    const burst = 6;       // 1 セットの打数
+    const sets = 3;        // セット数
+    const beat = 0.18;
+    const gap = 0.7;
+    for (let s = 0; s < sets; s++) {
+      for (let i = 0; i < burst; i++) {
+        strike(s * (burst * beat + gap) + i * beat, freq);
+      }
+    }
+    return sets * (burst * beat + gap);
+  }
+
+  // 矩形波の強めブザー (短く区切って 6 連発を 2 セット)
+  function renderBuzzer(ctx) {
+    const beep = (when, dur) => {
+      const start = ctx.currentTime + when;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = 660;
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(0.35, start + 0.01);
+      g.gain.setValueAtTime(0.35, start + dur - 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      osc.connect(g).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + dur + 0.02);
+    };
+    const dur = 0.18, gap = 0.08;
+    const count = 6, sets = 2, between = 0.6;
+    for (let s = 0; s < sets; s++) {
+      for (let i = 0; i < count; i++) {
+        beep(s * (count * (dur + gap) + between) + i * (dur + gap), dur);
+      }
+    }
+    return sets * (count * (dur + gap) + between);
+  }
+
+  // サイレン: 周波数を上下にスイープ
+  function renderSiren(ctx) {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sawtooth';
+    const start = ctx.currentTime;
+    const cycles = 4;
+    const period = 0.8;
+    osc.frequency.setValueAtTime(440, start);
+    for (let i = 0; i < cycles; i++) {
+      const t0 = start + i * period;
+      osc.frequency.linearRampToValueAtTime(1100, t0 + period / 2);
+      osc.frequency.linearRampToValueAtTime(440, t0 + period);
+    }
+    const total = cycles * period;
+    g.gain.setValueAtTime(0.0001, start);
+    g.gain.exponentialRampToValueAtTime(0.25, start + 0.05);
+    g.gain.setValueAtTime(0.25, start + total - 0.1);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + total);
+    osc.connect(g).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + total + 0.05);
+    return total;
+  }
+
+  // 目覚まし時計風: 高音ピピピ × 4 セット
+  function renderAlarm(ctx) {
+    const beep = (when, dur) => {
+      const start = ctx.currentTime + when;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 1760; // A6
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(0.4, start + 0.005);
+      g.gain.setValueAtTime(0.4, start + dur - 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      osc.connect(g).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + dur + 0.02);
+    };
+    const dur = 0.08, gap = 0.07;
+    const burst = 4, sets = 4, between = 0.45;
+    for (let s = 0; s < sets; s++) {
+      for (let i = 0; i < burst; i++) {
+        beep(s * (burst * (dur + gap) + between) + i * (dur + gap), dur);
+      }
+    }
+    return sets * (burst * (dur + gap) + between);
   }
 
   // ============================================================
@@ -324,6 +465,9 @@
 
     if (opacityInput && document.activeElement !== opacityInput) {
       opacityInput.value = String(ui.opacity);
+    }
+    if (soundSelect && document.activeElement !== soundSelect) {
+      soundSelect.value = ui.sound || DEFAULT_SOUND;
     }
 
     const baseSeconds = running
@@ -616,6 +760,38 @@
     opWrap.appendChild(opLabel);
     opWrap.appendChild(opacityInput);
     sliders.appendChild(opWrap);
+
+    // 終了音セレクタ + 試聴
+    const soundWrap = document.createElement('label');
+    soundWrap.className = 'ot-slider ot-sound';
+    const soundLabel = document.createElement('span');
+    soundLabel.textContent = '音';
+    soundSelect = document.createElement('select');
+    soundSelect.className = 'ot-sound-select';
+    soundSelect.setAttribute('aria-label', '終了音');
+    SOUND_PRESETS.forEach(({ key, label }) => {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = label;
+      soundSelect.appendChild(opt);
+    });
+    soundSelect.value = ui.sound || DEFAULT_SOUND;
+    soundSelect.addEventListener('change', () => {
+      ui.sound = soundSelect.value;
+      saveUi();
+      previewSound(ui.sound);
+    });
+    const previewBtn = document.createElement('button');
+    previewBtn.type = 'button';
+    previewBtn.className = 'ot-icon-btn ot-sound-preview';
+    previewBtn.textContent = '▶';
+    previewBtn.setAttribute('aria-label', '音を試聴');
+    previewBtn.title = '音を試聴';
+    previewBtn.addEventListener('click', () => previewSound(ui.sound || DEFAULT_SOUND));
+    soundWrap.appendChild(soundLabel);
+    soundWrap.appendChild(soundSelect);
+    soundWrap.appendChild(previewBtn);
+    sliders.appendChild(soundWrap);
 
     // リサイズハンドル
     resizeHandle = document.createElement('div');
