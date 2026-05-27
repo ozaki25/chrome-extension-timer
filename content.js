@@ -80,7 +80,8 @@
   // ランタイム状態
   let visible = false;
   let rafId = null;
-  let beepCtx = null;
+  let audioCtx = null;       // 共有 AudioContext (ユーザージェスチャー時に生成)
+  let activeOscs = [];        // 現在鳴っている oscillator 群 (早期停止用)
   let beepTimers = [];
 
   // ============================================================
@@ -164,6 +165,10 @@
   }
 
   function start() {
+    // ユーザージェスチャーのうちに AudioContext を確保しておく
+    // (終了通知は background から非同期に来るため、その時点では autoplay 制限で
+    //  新規 AudioContext を生成できない)
+    ensureAudioContext();
     const next = Lib.transitionStart(shared, Date.now());
     if (next === shared) return;
     commitToRunning(next);
@@ -249,13 +254,28 @@
   // ============================================================
   // 音 (チャイム)
   // ============================================================
+  // ユーザージェスチャー中に呼び出して AudioContext を確保 / 再開する。
+  // 一度確保しておけば、後から background 経由で終了通知が来ても再生できる。
+  function ensureAudioContext() {
+    try {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
+    } catch (e) {}
+    return audioCtx;
+  }
+
   function stopBeep() {
     beepTimers.forEach((id) => clearTimeout(id));
     beepTimers = [];
-    if (beepCtx) {
-      try { beepCtx.close(); } catch (e) {}
-      beepCtx = null;
-    }
+    activeOscs.forEach((osc) => {
+      try { osc.stop(); } catch (e) {}
+      try { osc.disconnect(); } catch (e) {}
+    });
+    activeOscs = [];
   }
 
   function playBeep() {
@@ -269,27 +289,40 @@
 
   function playSound(key) {
     stopBeep();
-    try {
-      beepCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const ctx = beepCtx;
-      const renderers = {
-        chime: renderChime,
-        bell: renderBell,
-        buzzer: renderBuzzer,
-        siren: renderSiren,
-        alarm: renderAlarm
-      };
-      const render = renderers[key] || renderers[DEFAULT_SOUND];
-      const total = render(ctx);
-      const id = setTimeout(stopBeep, total * 1000);
-      beepTimers.push(id);
-    } catch (e) {}
+    const ctx = ensureAudioContext();
+    if (!ctx) return;
+    // suspended のままだと無音なので resume を待ってからスケジュール
+    const schedule = () => {
+      try {
+        const make = () => {
+          const osc = ctx.createOscillator();
+          activeOscs.push(osc);
+          return osc;
+        };
+        const renderers = {
+          chime: renderChime,
+          bell: renderBell,
+          buzzer: renderBuzzer,
+          siren: renderSiren,
+          alarm: renderAlarm
+        };
+        const render = renderers[key] || renderers[DEFAULT_SOUND];
+        const total = render(ctx, make);
+        const id = setTimeout(stopBeep, total * 1000);
+        beepTimers.push(id);
+      } catch (e) {}
+    };
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(schedule).catch(() => {});
+    } else {
+      schedule();
+    }
   }
 
   // --- 個別レンダラ。戻り値は鳴り終わるまでの秒数 (停止用) ---
 
   // やさしい ding-dong チャイム (旧デフォルト)
-  function renderChime(ctx) {
+  function renderChime(ctx, make) {
     const partials = [
       { mult: 1.0, gain: 0.35, decay: 1.0 },
       { mult: 2.0, gain: 0.18, decay: 0.7 },
@@ -299,7 +332,7 @@
     const playChime = (when, freq, duration) => {
       const start = ctx.currentTime + when;
       partials.forEach(({ mult, gain, decay }) => {
-        const osc = ctx.createOscillator();
+        const osc = make();
         const g = ctx.createGain();
         osc.type = 'sine';
         osc.frequency.value = freq * mult;
@@ -322,7 +355,7 @@
   }
 
   // 金属ベル (倍音強め) を 0.18 秒間隔で連打
-  function renderBell(ctx) {
+  function renderBell(ctx, make) {
     const partials = [
       { mult: 1.0, gain: 0.45, decay: 0.6 },
       { mult: 2.76, gain: 0.30, decay: 0.45 },
@@ -332,7 +365,7 @@
     const strike = (when, freq) => {
       const start = ctx.currentTime + when;
       partials.forEach(({ mult, gain, decay }) => {
-        const osc = ctx.createOscillator();
+        const osc = make();
         const g = ctx.createGain();
         osc.type = 'sine';
         osc.frequency.value = freq * mult;
@@ -358,10 +391,10 @@
   }
 
   // 矩形波の強めブザー (短く区切って 6 連発を 2 セット)
-  function renderBuzzer(ctx) {
+  function renderBuzzer(ctx, make) {
     const beep = (when, dur) => {
       const start = ctx.currentTime + when;
-      const osc = ctx.createOscillator();
+      const osc = make();
       const g = ctx.createGain();
       osc.type = 'square';
       osc.frequency.value = 660;
@@ -384,8 +417,8 @@
   }
 
   // サイレン: 周波数を上下にスイープ
-  function renderSiren(ctx) {
-    const osc = ctx.createOscillator();
+  function renderSiren(ctx, make) {
+    const osc = make();
     const g = ctx.createGain();
     osc.type = 'sawtooth';
     const start = ctx.currentTime;
@@ -409,10 +442,10 @@
   }
 
   // 目覚まし時計風: 高音ピピピ × 4 セット
-  function renderAlarm(ctx) {
+  function renderAlarm(ctx, make) {
     const beep = (when, dur) => {
       const start = ctx.currentTime + when;
-      const osc = ctx.createOscillator();
+      const osc = make();
       const g = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.value = 1760; // A6
