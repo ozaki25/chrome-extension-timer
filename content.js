@@ -38,7 +38,7 @@
     { key: 'chime', label: 'チャイム (やさしい)' },
     { key: 'bell', label: 'ベル (連打)' },
     { key: 'buzzer', label: 'ブザー (強め)' },
-    { key: 'siren', label: 'サイレン' },
+    { key: 'clap', label: '拍子木 (カンカン)' },
     { key: 'alarm', label: '目覚まし (ピピピ)' }
   ];
   const DEFAULT_SOUND = 'bell';
@@ -303,7 +303,7 @@
           chime: renderChime,
           bell: renderBell,
           buzzer: renderBuzzer,
-          siren: renderSiren,
+          clap: renderClap,
           alarm: renderAlarm
         };
         const render = renderers[key] || renderers[DEFAULT_SOUND];
@@ -416,29 +416,37 @@
     return sets * (count * (dur + gap) + between);
   }
 
-  // サイレン: 周波数を上下にスイープ
-  function renderSiren(ctx, make) {
-    const osc = make();
-    const g = ctx.createGain();
-    osc.type = 'sawtooth';
-    const start = ctx.currentTime;
-    const cycles = 4;
-    const period = 0.8;
-    osc.frequency.setValueAtTime(440, start);
-    for (let i = 0; i < cycles; i++) {
-      const t0 = start + i * period;
-      osc.frequency.linearRampToValueAtTime(1100, t0 + period / 2);
-      osc.frequency.linearRampToValueAtTime(440, t0 + period);
+  // 拍子木 / クラベス風: 高音の鋭いアタック + 短い減衰
+  function renderClap(ctx, make) {
+    // 主成分と倍音 (木が鳴る感じを軽く模擬)
+    const partials = [
+      { mult: 1.0, gain: 0.5, decay: 0.08 },
+      { mult: 2.1, gain: 0.25, decay: 0.06 },
+      { mult: 3.4, gain: 0.12, decay: 0.04 }
+    ];
+    const hit = (when) => {
+      const start = ctx.currentTime + when;
+      partials.forEach(({ mult, gain, decay }) => {
+        const osc = make();
+        const g = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = 1800 * mult;
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.exponentialRampToValueAtTime(gain, start + 0.002);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + decay);
+        osc.connect(g).connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + decay + 0.02);
+      });
+    };
+    // 三三七拍子っぽいリズムを 2 セット
+    const pattern = [0.0, 0.25, 0.5, 1.0, 1.25, 1.5, 2.0, 2.2, 2.4, 2.6];
+    const setLen = 3.2;
+    const sets = 2;
+    for (let s = 0; s < sets; s++) {
+      pattern.forEach((t) => hit(s * setLen + t));
     }
-    const total = cycles * period;
-    g.gain.setValueAtTime(0.0001, start);
-    g.gain.exponentialRampToValueAtTime(0.25, start + 0.05);
-    g.gain.setValueAtTime(0.25, start + total - 0.1);
-    g.gain.exponentialRampToValueAtTime(0.0001, start + total);
-    osc.connect(g).connect(ctx.destination);
-    osc.start(start);
-    osc.stop(start + total + 0.05);
-    return total;
+    return sets * setLen;
   }
 
   // 目覚まし時計風: 高音ピピピ × 4 セット
