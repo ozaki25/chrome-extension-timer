@@ -118,6 +118,7 @@
 #overlay-timer-root .ot-header-btns {
   display: flex;
   gap: 4px;
+  margin-left: auto; /* タイトルが空/狭くなっても右端をキープ */
 }
 
 #overlay-timer-root .ot-icon-btn {
