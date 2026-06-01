@@ -507,8 +507,14 @@
     minBtn.setAttribute('aria-label', ui.minimized ? '展開' : '最小化');
     minBtn.setAttribute('aria-expanded', ui.minimized ? 'false' : 'true');
 
-    root.style.width = ui.width + 'px';
-    root.style.height = ui.minimized ? 'auto' : ui.height + 'px';
+    if (ui.minimized) {
+      // CSS の width:auto / コンパクトサイズに任せる
+      root.style.width = '';
+      root.style.height = '';
+    } else {
+      root.style.width = ui.width + 'px';
+      root.style.height = ui.height + 'px';
+    }
     root.style.opacity = String(ui.opacity);
     updateDisplayFontSize();
 
@@ -715,8 +721,10 @@
     root.setAttribute('aria-label', 'オーバーレイタイマー');
     root.style.left = ui.position.x + 'px';
     root.style.top = ui.position.y + 'px';
-    root.style.width = ui.width + 'px';
-    root.style.height = ui.minimized ? 'auto' : ui.height + 'px';
+    if (!ui.minimized) {
+      root.style.width = ui.width + 'px';
+      root.style.height = ui.height + 'px';
+    }
 
     // ヘッダー
     const header = document.createElement('div');

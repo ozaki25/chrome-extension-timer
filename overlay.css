@@ -311,20 +311,39 @@
 #overlay-timer-root.ot-minimized {
   width: auto;
   height: auto;
-  padding: 6px 10px;
+  min-width: 0;
+  min-height: 0;
+  padding: 2px 8px;
+  gap: 2px;
 }
 
 #overlay-timer-root.ot-minimized .ot-adjusters,
 #overlay-timer-root.ot-minimized .ot-controls,
 #overlay-timer-root.ot-minimized .ot-sliders,
 #overlay-timer-root.ot-minimized .ot-direct,
+#overlay-timer-root.ot-minimized .ot-status,
 #overlay-timer-root.ot-minimized .ot-resize {
   display: none;
 }
 
+#overlay-timer-root.ot-minimized .ot-title {
+  display: none;
+}
+
+#overlay-timer-root.ot-minimized .ot-header {
+  gap: 4px;
+}
+
 #overlay-timer-root.ot-minimized .ot-display {
-  font-size: 28px;
+  font-size: 18px !important;
   padding: 0;
+  flex: 0 0 auto;
+}
+
+#overlay-timer-root.ot-minimized .ot-icon-btn {
+  min-width: 20px;
+  min-height: 20px;
+  font-size: 12px;
 }
 
 #overlay-timer-root .ot-resize {
