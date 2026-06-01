@@ -330,6 +330,73 @@
   flex: 0 0 auto;
 }
 
+/* ===== Resize edges/corners ===== */
+#overlay-timer-root .ot-resize-edge {
+  position: absolute;
+  background: transparent;
+  z-index: 1;
+}
+
+#overlay-timer-root .ot-resize-n {
+  top: 0;
+  left: 10px;
+  right: 10px;
+  height: 5px;
+  cursor: ns-resize;
+}
+
+#overlay-timer-root .ot-resize-s {
+  bottom: 0;
+  left: 10px;
+  right: 18px; /* SE corner 用に空ける */
+  height: 5px;
+  cursor: ns-resize;
+}
+
+#overlay-timer-root .ot-resize-e {
+  right: 0;
+  top: 10px;
+  bottom: 18px; /* SE corner 用に空ける */
+  width: 5px;
+  cursor: ew-resize;
+}
+
+#overlay-timer-root .ot-resize-w {
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 5px;
+  cursor: ew-resize;
+}
+
+#overlay-timer-root .ot-resize-ne {
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  cursor: nesw-resize;
+}
+
+#overlay-timer-root .ot-resize-nw {
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  cursor: nwse-resize;
+}
+
+#overlay-timer-root .ot-resize-sw {
+  bottom: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  cursor: nesw-resize;
+}
+
+#overlay-timer-root.ot-minimized .ot-resize-edge {
+  display: none;
+}
+
 #overlay-timer-root .ot-resize {
   position: absolute;
   right: 2px;
@@ -337,6 +404,7 @@
   width: 16px;
   height: 16px;
   cursor: nwse-resize;
+  z-index: 2;
   border-radius: 0 0 10px 0;
   background:
     linear-gradient(

@@ -617,8 +617,16 @@
     }
   }
 
-  function makeResizable(handle) {
-    let startX = 0, startY = 0, startW = 0, startH = 0, resizing = false;
+  // dir: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
+  // 含まれる方向の辺を動かす。w/n を含む場合は反対側を固定するため位置も更新する。
+  function makeResizable(handle, dir) {
+    const hasN = dir.includes('n');
+    const hasS = dir.includes('s');
+    const hasE = dir.includes('e');
+    const hasW = dir.includes('w');
+    let startX = 0, startY = 0, startW = 0, startH = 0;
+    let startLeft = 0, startTop = 0, anchorRight = 0, anchorBottom = 0;
+    let resizing = false;
     const onDown = (e) => {
       resizing = true;
       const point = e.touches ? e.touches[0] : e;
@@ -626,13 +634,46 @@
       startY = point.clientY;
       startW = ui.width;
       startH = ui.height;
+      startLeft = ui.position.x;
+      startTop = ui.position.y;
+      anchorRight = startLeft + startW;
+      anchorBottom = startTop + startH;
       e.preventDefault();
       e.stopPropagation();
     };
     const onMove = (e) => {
       if (!resizing) return;
       const point = e.touches ? e.touches[0] : e;
-      setSize(startW + (point.clientX - startX), startH + (point.clientY - startY));
+      const dx = point.clientX - startX;
+      const dy = point.clientY - startY;
+      let newW = startW;
+      let newH = startH;
+      if (hasE) newW = startW + dx;
+      if (hasW) newW = startW - dx;
+      if (hasS) newH = startH + dy;
+      if (hasN) newH = startH - dy;
+
+      const clamped = Lib.clampSize(newW, newH, {
+        minW: MIN_WIDTH, maxW: MAX_WIDTH,
+        minH: MIN_HEIGHT, maxH: MAX_HEIGHT
+      });
+      ui.width = clamped.width;
+      ui.height = clamped.height;
+
+      // 西/北の辺を引っ張るときは反対側 (右/下) を固定する
+      if (hasW) ui.position.x = anchorRight - clamped.width;
+      if (hasN) ui.position.y = anchorBottom - clamped.height;
+      // 画面外に出ないようクランプ
+      ui.position.x = Math.max(0, Math.min(window.innerWidth - clamped.width, ui.position.x));
+      ui.position.y = Math.max(0, Math.min(window.innerHeight - clamped.height, ui.position.y));
+
+      if (root) {
+        root.style.left = ui.position.x + 'px';
+        root.style.top = ui.position.y + 'px';
+        root.style.width = ui.width + 'px';
+        if (!ui.minimized) root.style.height = ui.height + 'px';
+        updateDisplayFontSize();
+      }
     };
     const onUp = () => {
       if (resizing) {
@@ -845,14 +886,22 @@
     soundWrap.appendChild(previewBtn);
     sliders.appendChild(soundWrap);
 
-    // リサイズハンドル
+    // リサイズハンドル (右下 = SE はキーボード操作とビジュアル付き)
     resizeHandle = document.createElement('div');
-    resizeHandle.className = 'ot-resize';
+    resizeHandle.className = 'ot-resize ot-resize-se';
     resizeHandle.setAttribute('role', 'separator');
     resizeHandle.setAttribute('aria-label', 'サイズを変更');
     resizeHandle.setAttribute('aria-orientation', 'horizontal');
     resizeHandle.setAttribute('tabindex', '0');
     resizeHandle.title = 'ドラッグでサイズ変更';
+
+    // 上下左右 + 残り 3 隅のリサイズ用ハンドル
+    const otherHandles = ['n', 's', 'e', 'w', 'ne', 'nw', 'sw'].map((dir) => {
+      const h = document.createElement('div');
+      h.className = `ot-resize-edge ot-resize-${dir}`;
+      h.setAttribute('aria-hidden', 'true');
+      return h;
+    });
 
     root.appendChild(header);
     root.appendChild(display);
@@ -862,11 +911,16 @@
     root.appendChild(controls);
     root.appendChild(sliders);
     root.appendChild(resizeHandle);
+    otherHandles.forEach((h) => root.appendChild(h));
     document.documentElement.appendChild(root);
 
     makeDraggable(header);
     makeDraggable(display);
-    makeResizable(resizeHandle);
+    makeResizable(resizeHandle, 'se');
+    otherHandles.forEach((h) => {
+      const dir = h.classList[1].replace('ot-resize-', '');
+      makeResizable(h, dir);
+    });
     applyTheme();
   }
 
