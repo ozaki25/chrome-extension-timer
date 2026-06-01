@@ -212,7 +212,8 @@
       saveShared();
       render();
     } else if (wasFinished && deltaSeconds > 0) {
-      commitToRunning(next);
+      // 終了後に + で時間を足したときは自動再開しない (鳴っていれば止める)
+      commitToStopped(next, { stopBeepFirst: true });
     } else {
       shared = next;
       saveShared();

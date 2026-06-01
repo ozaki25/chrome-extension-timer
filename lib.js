@@ -89,7 +89,13 @@
       };
     }
     if (isFinished(state, now) && delta > 0) {
-      return transitionRestart(state, delta, now);
+      // 終了状態で時間を足した時は自動再開せず、設定時間だけ更新
+      return {
+        ...state,
+        initialSeconds: delta,
+        pausedRemaining: delta,
+        endTimestamp: null
+      };
     }
     const newInitial = Math.max(0, state.initialSeconds + delta);
     return {

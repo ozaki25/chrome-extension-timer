@@ -187,12 +187,12 @@ describe('transitionAdjust', () => {
     assert.strictEqual(lib.transitionAdjust(state, -10, 1000), state);
   });
 
-  test('終了状態 + delta>0: その秒数で再スタート', () => {
+  test('終了状態 + delta>0: 自動再開せず、その秒数で停止状態にする', () => {
     const state = { endTimestamp: 500, pausedRemaining: 100, initialSeconds: 100 };
     const next = lib.transitionAdjust(state, 60, 1000);
     assert.equal(next.initialSeconds, 60);
     assert.equal(next.pausedRemaining, 60);
-    assert.equal(next.endTimestamp, 61000);
+    assert.equal(next.endTimestamp, null);
   });
 
   test('終了状態 + delta<0 は通常の増減フォールスルー (initialSeconds 0 から負は 0)', () => {
