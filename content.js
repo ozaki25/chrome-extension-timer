@@ -66,7 +66,6 @@
     position: { x: 24, y: 24 },
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT,
-    opacity: 0.95,
     minimized: false,
     theme: 'auto',
     sound: DEFAULT_SOUND
@@ -80,7 +79,6 @@
   let minBtn = null;
   let themeBtn = null;
   let soundSelect = null;
-  let opacityInput = null;
   let resizeHandle = null;
   let minutesInput = null;
   let secondsInput = null;
@@ -511,12 +509,8 @@
     root.style.width = ui.width + 'px';
     // 最小化時は高さだけ CSS の auto に委ねる
     root.style.height = ui.minimized ? '' : ui.height + 'px';
-    root.style.opacity = String(ui.opacity);
     updateDisplayFontSize();
 
-    if (opacityInput && document.activeElement !== opacityInput) {
-      opacityInput.value = String(ui.opacity);
-    }
     if (soundSelect && document.activeElement !== soundSelect) {
       soundSelect.value = ui.sound || DEFAULT_SOUND;
     }
@@ -832,30 +826,9 @@
     controls.appendChild(startBtn);
     controls.appendChild(makeBtn('リセット', '', reset));
 
-    // 透明度スライダー
+    // 終了音セレクタ + 試聴
     const sliders = document.createElement('div');
     sliders.className = 'ot-sliders';
-    const opWrap = document.createElement('label');
-    opWrap.className = 'ot-slider';
-    const opLabel = document.createElement('span');
-    opLabel.textContent = '透明度';
-    opacityInput = document.createElement('input');
-    opacityInput.type = 'range';
-    opacityInput.min = '0.5';
-    opacityInput.max = '1';
-    opacityInput.step = '0.05';
-    opacityInput.value = String(ui.opacity);
-    opacityInput.setAttribute('aria-label', '透明度');
-    opacityInput.addEventListener('input', () => {
-      ui.opacity = parseFloat(opacityInput.value);
-      saveUi();
-      render();
-    });
-    opWrap.appendChild(opLabel);
-    opWrap.appendChild(opacityInput);
-    sliders.appendChild(opWrap);
-
-    // 終了音セレクタ + 試聴
     const soundWrap = document.createElement('label');
     soundWrap.className = 'ot-slider ot-sound';
     const soundLabel = document.createElement('span');

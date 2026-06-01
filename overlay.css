@@ -95,7 +95,7 @@
   user-select: none;
   -webkit-user-select: none;
   overflow: hidden;
-  transition: opacity 0.15s ease, background-color 0.2s ease, color 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 #overlay-timer-root,
@@ -251,8 +251,7 @@
 }
 
 #overlay-timer-root .ot-btn:focus-visible,
-#overlay-timer-root .ot-icon-btn:focus-visible,
-#overlay-timer-root input[type="range"]:focus-visible {
+#overlay-timer-root .ot-icon-btn:focus-visible {
   outline: 2px solid var(--ot-accent);
   outline-offset: 2px;
 }
@@ -276,12 +275,6 @@
 #overlay-timer-root .ot-slider span {
   width: 48px;
   flex-shrink: 0;
-}
-
-#overlay-timer-root .ot-slider input[type="range"] {
-  flex: 1;
-  margin: 0;
-  accent-color: var(--ot-primary);
 }
 
 #overlay-timer-root .ot-sound-select {
@@ -476,8 +469,7 @@
     border-color: Highlight;
   }
   #overlay-timer-root .ot-btn:focus-visible,
-  #overlay-timer-root .ot-icon-btn:focus-visible,
-  #overlay-timer-root input[type="range"]:focus-visible {
+  #overlay-timer-root .ot-icon-btn:focus-visible {
     outline: 2px solid Highlight;
   }
   #overlay-timer-root.ot-finished-state {
