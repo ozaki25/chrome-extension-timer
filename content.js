@@ -1,20 +1,35 @@
 (() => {
-  if (window.__overlayTimerInjected__) {
-    // 既にこのタブで content script が走っているので何もしない
-    // (chrome.runtime.onMessage のリスナーは初回実行時に登録済み)
-    return;
-  }
-  window.__overlayTimerInjected__ = true;
-
   const Lib = (typeof globalThis !== 'undefined' && globalThis.OverlayTimerLib) || window.OverlayTimerLib;
   if (!Lib) {
     // lib.js が同じコンテキストに注入されていない (古いビルドの content.js だけが
     // 残っているタブなど)。エラーで埋め尽くされる前に降りる。
-    // 再注入を許すため __overlayTimerInjected__ も解除しておく。
     console.warn('[Overlay Timer] lib.js が見つかりません。タブをリロードしてください。');
-    delete window.__overlayTimerInjected__;
     return;
   }
+
+  // 拡張アップデート時など、古いインスタンス (orphaned content script) が
+  // このページに残っていると二重表示になる。新しく注入された自分が引き継ぐので、
+  // 先に古いインスタンスへ破棄を通知し、残っている DOM も除去しておく。
+  // (アップデート後は非表示状態から再スタートする)
+  try { window.dispatchEvent(new CustomEvent('__overlayTimerDestroy__')); } catch (e) {}
+  document.querySelectorAll('#overlay-timer-root').forEach((el) => el.remove());
+
+  // 自分自身が破棄通知を受けたとき (さらに新しいインスタンスに置き換わるとき) の後始末
+  let destroyed = false;
+  function teardown() {
+    if (destroyed) return;
+    destroyed = true;
+    try { cancelTicking(); } catch (e) {}
+    try { stopBeep(); } catch (e) {}
+    try { window.removeEventListener('resize', clampIntoView); } catch (e) {}
+    try { window.removeEventListener('__overlayTimerDestroy__', teardown); } catch (e) {}
+    if (root) {
+      try { root.remove(); } catch (e) {}
+      root = null;
+    }
+    visible = false;
+  }
+  window.addEventListener('__overlayTimerDestroy__', teardown);
 
   // ============================================================
   // 定数
@@ -901,10 +916,28 @@
   // ============================================================
   // 表示制御
   // ============================================================
+  // ウィンドウが縮むなどで位置がビューポート外に出たら、見える範囲に引き戻す
+  function clampIntoView() {
+    if (!root || !visible) return;
+    const w = root.offsetWidth;
+    const h = root.offsetHeight;
+    const maxX = Math.max(0, window.innerWidth - w);
+    const maxY = Math.max(0, window.innerHeight - h);
+    const x = Math.max(0, Math.min(maxX, ui.position.x));
+    const y = Math.max(0, Math.min(maxY, ui.position.y));
+    if (x !== ui.position.x || y !== ui.position.y) {
+      ui.position = { x, y };
+      root.style.left = x + 'px';
+      root.style.top = y + 'px';
+      saveUi();
+    }
+  }
+
   function show() {
     if (!root) build();
     visible = true;
     root.style.display = 'flex';
+    clampIntoView();
     render();
     startTicking();
   }
@@ -929,11 +962,13 @@
   // メッセージ / ストレージのリスナー
   // ============================================================
   chrome.runtime.onMessage.addListener((msg) => {
+    if (destroyed) return;
     if (msg?.type === 'TOGGLE_TIMER') toggle();
     if (msg?.type === 'TIMER_FINISHED') onFinish();
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (destroyed) return;
     if (area !== 'local') return;
     if (changes[STATE_KEY]?.newValue) {
       shared = { ...shared, ...changes[STATE_KEY].newValue };
@@ -950,6 +985,9 @@
       }
     }
   });
+
+  // ウィンドウサイズ変更で画面外に消えないよう、表示中は位置をクランプ
+  window.addEventListener('resize', clampIntoView);
 
   // OS のダーク/ライト切替に追従 (auto モード時のみ表示を更新)
   try {
