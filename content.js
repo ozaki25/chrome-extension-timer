@@ -861,7 +861,6 @@
     soundSelect.addEventListener('change', () => {
       ui.sound = soundSelect.value;
       saveUi();
-      previewSound(ui.sound);
     });
     const previewBtn = document.createElement('button');
     previewBtn.type = 'button';
